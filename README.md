@@ -1,6 +1,12 @@
 # Lcspeed 极客纯净测速
 浏览器端纯前端测速工具箱，**不需要后端，打开HTML直接本地运行**，无广告。
 
+>[![Live Demo](https://img.shields.io/badge/Live--Demo-Online-22c55e?style=flat-square&logo=firefox)](https://nancco.github.io/lcspeed/)
+[![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
+> > ⚠️ 注意：GitHub Pages在线演示受浏览器跨域限制，**公网IP获取、部分网络接口会大概率失败**；完整体验建议：下载 `index.html` 在本地浏览器打开。
+
+浏览器端纯前端测速工具箱，**不需要后端，打开HTML直接本地运行**，无广告。
+
 > ⚠️ 说明：网页JS**无法读取局域网内网IP**；公网IP依赖第三方公网API接口，网络环境差的时候可能获取失败。
 
 ## 功能列表
