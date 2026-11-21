@@ -1,0 +1,1140 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Lcspeed - 极客纯净测速</title>
+    
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2322c55e'%3E%3Cpath d='M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z'/%3E%3C/svg%3E">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        html, body { max-width: 100vw; overflow-x: hidden; background-color: #030712; color: #e5e7eb; -webkit-tap-highlight-color: transparent; }
+        .tab-active { background-color: #22c55e !important; color: #030712 !important; box-shadow: 0 0 10px rgba(34,197,94,0.3); }
+        
+        /* PC 键盘样式 */
+        .key-btn { background-color: #1f2937; color: #9ca3af; border: 1px solid #374151; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; transition: all 0.05s ease; user-select: none; }
+        .key-pressed { background-color: #22c55e !important; color: #030712 !important; transform: translateY(2px); box-shadow: 0 0 10px rgba(34,197,94,0.6); }
+        
+        /* 隐藏滚动条 */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        /* 手机端触控测试区防止拖拽页面 */
+        #touch-area { touch-action: none; }
+        
+        /* 历史记录柱子动画 */
+        .history-bar { transition: height 0.5s ease; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center pt-6 pb-12">
+
+    <!-- 头部 -->
+    <h1 class="text-2xl md:text-4xl font-black text-white mb-2 tracking-widest flex items-center gap-2">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-7 h-7 md:w-10 md:h-10 text-green-500">
+            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+        </svg>
+        Lcspeed
+    </h1>
+    <p class="text-green-500/70 text-[10px] md:text-xs border border-green-500/30 px-3 py-1 rounded-full mb-6 bg-green-500/10">纯净无广 · 免安装 · 纯本地运行</p>
+
+    <!-- Tab 切换 (由 JS 动态渲染) -->
+    <div id="tab-container" class="flex w-[95%] max-w-2xl mx-auto mb-6 bg-gray-900 p-1 rounded-xl border border-gray-800 overflow-x-auto no-scrollbar">
+        <!-- 动态插入按钮 -->
+    </div>
+
+    <!-- ==================== 1. 网络面板 ==================== -->
+    <div id="panel-network" class="w-full max-w-4xl px-3 block">
+        <div class="bg-gray-900 border border-gray-800 rounded-2xl p-4 md:p-6 shadow-2xl">
+            
+            <div class="flex flex-col gap-3 mb-4">
+                <div class="bg-gray-950 p-3 md:p-4 rounded-xl border border-gray-800 flex justify-between items-center">
+                    <div class="text-gray-500 text-xs md:text-sm">本机公网 IP</div>
+                    <div id="ip-display" class="text-green-400 font-mono text-sm md:text-lg font-bold break-all text-right">获取中...</div>
+                </div>
+                <div class="bg-gray-950 p-3 md:p-4 rounded-xl border border-gray-800 flex justify-between items-center">
+                    <div class="text-gray-500 text-xs md:text-sm">运营商/归属地</div>
+                    <div id="isp-display" class="text-green-400 font-mono text-xs md:text-sm text-right">获取中...</div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                <div class="bg-gray-950 p-4 rounded-xl border border-gray-800">
+                    <div class="flex justify-between items-center mb-2">
+                        <div class="text-gray-500 text-xs md:text-sm">网络延迟 / 抖动</div>
+                        <div class="text-right">
+                            <span id="ping-display" class="text-green-400 font-mono text-lg md:text-2xl font-bold">-- ms</span>
+                            <span class="text-gray-600 text-[10px] mx-1">/</span>
+                            <span id="jitter-display" class="text-blue-400 font-mono text-xs font-bold">-- ms</span>
+                        </div>
+                    </div>
+                    <button onclick="testPingAndJitter()" id="ping-btn" class="w-full bg-gray-800 active:bg-gray-700 text-white font-bold py-2.5 rounded-lg text-xs md:text-sm mt-1">测延迟</button>
+                </div>
+
+                <div class="bg-gray-950 p-4 rounded-xl border border-gray-800">
+                    <div class="flex justify-between items-center mb-2">
+                        <div class="text-gray-500 text-xs md:text-sm">下载速度 (5MB)</div>
+                        <div id="download-display" class="text-blue-400 font-mono text-lg md:text-2xl font-bold">0.00 <span class="text-[10px]">Mbps</span></div>
+                    </div>
+                    <div class="w-full bg-gray-800 rounded-full h-1.5 mb-3 overflow-hidden">
+                        <div id="download-bar" class="bg-blue-500 h-1.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+                    </div>
+                    <button onclick="testDownload()" id="download-btn" class="w-full bg-blue-600 active:bg-blue-500 text-white font-bold py-2.5 rounded-lg text-xs md:text-sm shadow-[0_0_10px_rgba(37,99,235,0.3)]">测下载</button>
+                </div>
+
+                <div class="bg-gray-950 p-4 rounded-xl border border-gray-800">
+                    <div class="flex justify-between items-center mb-2">
+                        <div class="text-gray-500 text-xs md:text-sm">上传速度 (2MB)</div>
+                        <div id="upload-display" class="text-purple-400 font-mono text-lg md:text-2xl font-bold">0.00 <span class="text-[10px]">Mbps</span></div>
+                    </div>
+                    <div class="w-full bg-gray-800 rounded-full h-1.5 mb-3 overflow-hidden">
+                        <div id="upload-bar" class="bg-purple-500 h-1.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+                    </div>
+                    <button onclick="testUpload()" id="upload-btn" class="w-full bg-purple-600 active:bg-purple-500 text-white font-bold py-2.5 rounded-lg text-xs md:text-sm shadow-[0_0_10px_rgba(147,51,234,0.3)]">测上传</button>
+                </div>
+
+                <div class="bg-gray-950 p-4 rounded-xl border border-gray-800">
+                    <div class="flex justify-between items-center mb-3">
+                        <div class="text-gray-500 text-xs md:text-sm">DNS 解析耗时</div>
+                        <div id="dns-display" class="text-yellow-400 font-mono text-lg md:text-2xl font-bold">-- ms</div>
+                    </div>
+                    <button onclick="testDNS()" id="dns-btn" class="w-full bg-gray-800 active:bg-gray-700 text-white font-bold py-2.5 rounded-lg text-xs md:text-sm">测 DNS</button>
+                </div>
+            </div>
+
+            <!-- 历史记录图表 -->
+            <div class="bg-gray-950 p-4 rounded-xl border border-gray-800 mb-4">
+                <div class="flex justify-between items-center mb-4">
+                    <div class="text-gray-500 text-xs md:text-sm font-bold">📊 最近下载速度波动</div>
+                    <button onclick="clearHistory()" class="text-[10px] text-gray-600 hover:text-red-400">清空</button>
+                </div>
+                <div id="history-chart" class="w-full h-24 flex items-end justify-between gap-1 md:gap-2 px-2">
+                    <div class="text-gray-700 text-xs w-full text-center pb-8">暂无记录，快去测个速吧</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== 2. 极客工具箱 ==================== -->
+    <div id="panel-toolbox" class="w-full max-w-4xl px-3 hidden">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            
+           
+
+            <!-- IP 地址计算器 -->
+            <div class="bg-gray-900 border border-gray-800 rounded-2xl p-4 md:p-6 shadow-2xl">
+                <h3 class="text-lg font-bold text-white mb-3 flex items-center gap-2">🧮 IP子网计算器 (CIDR)</h3>
+                <p class="text-xs text-gray-500 mb-4">输入 IP 和掩码位数，计算网段信息。</p>
+                <div class="flex gap-2 mb-4">
+                    <input type="text" id="calc-ip" value="192.168.1.10" placeholder="IP" class="flex-1 w-2/3 bg-gray-950 text-green-400 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none">
+                    <div class="flex items-center text-gray-400">/</div>
+                    <input type="number" id="calc-mask" value="24" min="0" max="32" placeholder="掩码" class="w-20 bg-gray-950 text-green-400 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none text-center">
+                </div>
+                <div id="calc-result" class="bg-gray-950 p-3 rounded-lg border border-gray-800 text-xs font-mono text-gray-400 space-y-1">
+                    <div>网络地址: <span id="net-addr" class="text-green-400">--</span></div>
+                    <div>广播地址: <span id="bc-addr" class="text-green-400">--</span></div>
+                    <div>可用IP范围: <span id="host-range" class="text-green-400">--</span></div>
+                    <div>可用主机数: <span id="host-count" class="text-green-400">--</span></div>
+                </div>
+                <button onclick="calcSubnet()" class="w-full mt-3 bg-gray-800 hover:bg-gray-700 text-white font-bold py-2 rounded-lg text-sm transition-all">计算</button>
+            </div>
+
+            <!-- 时间戳转换 -->
+            <div class="bg-gray-900 border border-gray-800 rounded-2xl p-4 md:p-6 shadow-2xl">
+                <h3 class="text-lg font-bold text-white mb-3 flex items-center gap-2">⏱️ Unix 时间戳转换</h3>
+                <div class="flex gap-2 mb-3">
+                    <input type="number" id="timestamp-input" placeholder="输入时间戳 (秒)" class="flex-1 bg-gray-950 text-green-400 border border-gray-700 rounded-lg px-3 py-2 text-sm">
+                    <button onclick="tsToTime()" class="bg-gray-800 px-3 py-2 rounded-lg text-sm text-white font-bold">转时间</button>
+                </div>
+                <div class="flex gap-2 mb-3">
+                    <input type="datetime-local" id="time-input" class="flex-1 bg-gray-950 text-green-400 border border-gray-700 rounded-lg px-3 py-2 text-sm">
+                    <button onclick="timeToTs()" class="bg-gray-800 px-3 py-2 rounded-lg text-sm text-white font-bold">转时间戳</button>
+                </div>
+                <div class="bg-gray-950 p-3 rounded-lg border border-gray-800 text-center">
+                    <span class="text-xs text-gray-500">当前时间戳: </span>
+                    <span id="current-ts" class="text-green-400 font-mono font-bold"></span>
+                </div>
+            </div>
+
+            <!-- Base64 编解码 -->
+            <div class="bg-gray-900 border border-gray-800 rounded-2xl p-4 md:p-6 shadow-2xl">
+                <h3 class="text-lg font-bold text-white mb-3 flex items-center gap-2">🔐 Base64 编解码</h3>
+                <textarea id="b64-input" rows="3" placeholder="输入要编码或解码的文本..." class="w-full bg-gray-950 text-green-400 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none mb-3"></textarea>
+                <div class="flex gap-2">
+                    <button onclick="b64Encode()" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded-lg text-sm transition-all">编码 (Encode)</button>
+                    <button onclick="b64Decode()" class="flex-1 bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 rounded-lg text-sm transition-all">解码 (Decode)</button>
+                </div>
+                <div id="b64-result" class="mt-3 bg-gray-950 p-3 rounded-lg border border-gray-800 text-xs font-mono text-green-400 break-all hidden"></div>
+            </div>
+
+            <!-- IP 归属地查询 (含免责声明) -->
+            <div class="bg-gray-900 border border-gray-800 rounded-2xl p-4 md:p-6 shadow-2xl md:col-span-2">
+                <h3 class="text-lg font-bold text-white mb-3 flex items-center gap-2">🌍 IP 归属地查询 (支持指定 IP)</h3>
+                <p class="text-xs text-gray-500 mb-4">输入任意公网 IP（如 8.8.8.8），查询其公开的地理位置与运营商信息。</p>
+                
+                <div class="flex gap-2 mb-4">
+                    <input type="text" id="query-ip-input" placeholder="输入要查询的 IP 地址 (留空则查本机)" class="flex-1 bg-gray-950 text-green-400 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-500">
+                    <button onclick="querySpecificIp()" id="query-ip-btn" class="bg-blue-600 hover:bg-blue-500 text-white font-bold px-4 py-2 rounded-lg text-sm transition-all">查询</button>
+                </div>
+
+                <div id="query-ip-result" class="bg-gray-950 p-4 rounded-lg border border-gray-800 text-sm font-mono text-gray-400 hidden">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        <div>IP 地址: <span id="q-ip" class="text-green-400"></span></div>
+                        <div>国家/地区: <span id="q-country" class="text-green-400"></span></div>
+                        <div>省份/城市: <span id="q-region" class="text-green-400"></span></div>
+                        <div>运营商: <span id="q-isp" class="text-green-400"></span></div>
+                    </div>
+                </div>
+                
+                <!-- 法律免责声明 -->
+                <p class="text-[10px] text-gray-600 mt-4 leading-tight">
+                    * 免责声明：本工具仅查询互联网公开的 IP 路由分配信息（非精确物理定位）。查询他人 IP 须获得对方允许，查询结果仅供参考，严禁用于非法追踪、网络攻击或侵犯他人隐私。本网站不对任何直接或间接使用该数据产生的结果承担法律责任。
+                </p>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ==================== 3. 键盘面板 (PC) ==================== -->
+    <div id="panel-keyboard" class="w-full max-w-5xl px-2 hidden">
+        <div class="bg-gray-900 border border-gray-800 rounded-2xl p-4 shadow-2xl">
+            <div class="flex flex-wrap justify-between items-center mb-3 pb-3 border-b border-gray-800 gap-2">
+                <div class="flex items-center gap-3">
+                    <h2 class="text-base md:text-xl font-bold text-white">⌨️ 键盘无冲测试</h2>
+                    <!-- 切换键盘区域 -->
+                    <select id="kb-select" onchange="changeKeyboardLayout(this.value)" class="bg-gray-800 text-green-400 text-xs md:text-sm border border-gray-700 rounded-lg p-1.5 focus:outline-none focus:border-green-500">
+                        <option value="standard">PC 标准全键盘 (104键)</option>
+                        <option value="mac">Mac 键盘 (Magic Keyboard)</option>
+                        <option value="laptop">笔记本键盘 (紧凑型)</option>
+                        <option value="numpad">独立数字区 (17键)</option>
+                    </select>
+                </div>
+                <div class="text-xs text-gray-400">按键数: <span id="key-count" class="text-green-400 font-bold text-base">0</span></div>
+            </div>
+            <div class="w-full overflow-x-auto pb-4 no-scrollbar">
+                <div id="keyboard-container" class="flex flex-col gap-1.5 min-w-[700px]"></div>
+            </div>
+            <button onclick="resetKeyboard()" class="w-full md:w-auto mt-2 bg-red-500/20 text-red-400 active:bg-red-500/30 border border-red-500/30 px-4 py-2.5 rounded-lg text-sm transition-all">重置高亮</button>
+        </div>
+    </div>
+
+    <!-- ==================== 4. 鼠标面板 (PC) ==================== -->
+    <div id="panel-mouse" class="w-full max-w-3xl px-3 hidden relative">
+        <div class="bg-gray-900 border border-gray-800 rounded-2xl p-4 md:p-6 shadow-2xl">
+            <h2 class="text-base md:text-xl font-bold text-white mb-4 pb-3 border-b border-gray-800">🖱️ 鼠标 DPI 诊断</h2>
+            <div class="bg-gray-950 p-4 rounded-xl border border-gray-800 mb-4">
+                <h3 class="text-sm font-bold text-gray-300 mb-2">📏 第一步：校准屏幕尺寸</h3>
+                <p class="text-[10px] md:text-xs text-gray-500 mb-4">请拿一张**银行卡**贴在屏幕上，拖动下方滑块，让蓝框和卡片一样大。</p>
+                <div class="flex flex-col items-center mb-4">
+                    <div id="calibration-card" class="w-[85vw] max-w-[343px] h-[136px] max-h-[216px] bg-gradient-to-br from-blue-900 to-blue-500 rounded-xl flex items-center justify-center text-sm font-bold text-white border-2 border-blue-400">请调至卡片大小</div>
+                    <input type="range" id="calibrate-slider" min="200" max="600" value="343" class="w-full max-w-xs mt-4 accent-blue-500">
+                </div>
+                <div class="flex flex-row items-center gap-3 justify-center mt-2">
+                    <span class="text-xs text-gray-400">鼠标移动了</span>
+                    <input type="number" id="pad-distance" value="10" class="w-16 bg-gray-800 text-white text-center rounded p-1.5 border border-gray-700 text-sm">
+                    <span class="text-xs text-gray-400">厘米</span>
+                    <button onclick="startDpiTest()" id="dpi-btn" class="bg-purple-600 active:bg-purple-500 text-white px-4 py-1.5 rounded-lg font-bold text-xs">开始测算</button>
+                </div>
+            </div>
+            <div id="dpi-test-area" class="hidden bg-gray-950 p-4 rounded-xl border border-gray-800 mb-4">
+                <p class="text-center text-yellow-400 text-xs mb-2">按住左键，匀速拖动</p>
+                <div class="w-full h-24 bg-gray-900 border border-gray-700 relative flex items-center justify-between px-2 cursor-crosshair rounded-lg" id="dpi-drag-zone">
+                    <div class="w-1 h-full bg-red-500"></div>
+                    <div class="text-[10px] text-gray-500 pointer-events-none">按住拖到这里</div>
+                    <div class="w-1 h-full bg-red-500"></div>
+                </div>
+                <div class="text-center mt-3">结果: <span id="dpi-result" class="text-xl font-bold text-green-400">等待拖动...</span></div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div class="bg-gray-950 p-4 rounded-xl border border-gray-800 text-center flex flex-col items-center">
+                    <div class="text-gray-500 text-xs mb-2">真实回报率</div>
+                    <div id="polling-display" class="text-purple-400 font-mono text-2xl font-bold mb-2">-- Hz</div>
+                    <button onclick="lockPointer()" class="text-[10px] bg-gray-800 border border-gray-700 active:bg-gray-700 text-white px-3 py-1.5 rounded">锁定鼠标测试</button>
+                </div>
+                <div class="bg-gray-950 p-4 rounded-xl border border-gray-800 text-center">
+                    <div class="text-gray-500 text-xs mb-1">微动连点检测</div>
+                    <div id="click-display" class="text-green-400 text-sm font-bold h-6">点击下方区域</div>
+                    <div id="click-zone" class="w-full h-12 bg-gray-900 mt-1 rounded border border-gray-700 cursor-pointer active:bg-gray-800 flex items-center justify-center text-gray-600 text-xs">在这里狂点</div>
+                </div>
+            </div>
+        </div>
+        <div id="lock-overlay" class="hidden absolute inset-0 bg-black/90 z-50 flex flex-col items-center justify-center rounded-2xl p-4">
+            <h2 class="text-xl font-bold text-white mb-2 text-center">🎯 正在测试回报率</h2>
+            <p class="text-sm text-green-400 mb-6">请疯狂晃动鼠标！</p>
+            <div class="text-5xl font-mono text-white font-black mb-6" id="live-hz">-- <span class="text-lg text-gray-500">Hz</span></div>
+            <p class="text-xs text-gray-400 text-center">完成后，按 <kbd class="bg-gray-800 px-1.5 py-0.5 rounded border border-gray-600 text-white">Esc</kbd> 退出</p>
+        </div>
+    </div>
+
+    <!-- ==================== 5. 屏幕刷新率 (手机) ==================== -->
+    <div id="panel-screen" class="w-full max-w-3xl px-3 hidden">
+        <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6 shadow-2xl flex flex-col items-center justify-center min-h-[300px]">
+            <h2 class="text-xl font-bold text-white mb-6 text-center">📱 屏幕刷新率测试</h2>
+            <div class="text-6xl font-black font-mono text-green-400 mb-4" id="fps-display">-- <span class="text-xl">Hz</span></div>
+            <p class="text-gray-400 text-sm text-center mb-8 px-4">
+                点击下方按钮开始测试。请保持屏幕亮起。<br>
+                <span class="text-xs text-gray-600">(注：受限于浏览器机制，部分安卓机可能被锁在60Hz)</span>
+            </p>
+            <div class="w-24 h-24 rounded-full bg-blue-500/20 border-2 border-blue-500 animate-pulse mb-8" id="fps-indicator"></div>
+            <button onclick="startFpsTest()" id="fps-btn" class="w-full max-w-xs bg-blue-600 active:bg-blue-500 text-white font-bold py-3 rounded-xl transition-all shadow-[0_0_15px_rgba(37,99,235,0.4)]">开始测试刷新率</button>
+        </div>
+    </div>
+
+    <!-- ==================== 6. 触控测试 (手机) ==================== -->
+    <div id="panel-touch" class="w-full max-w-3xl px-3 hidden">
+        <div class="bg-gray-900 border border-gray-800 rounded-2xl p-4 md:p-6 shadow-2xl">
+            <h2 class="text-xl font-bold text-white mb-4 border-b border-gray-800 pb-3 text-center">👆 触控采样与多点触控</h2>
+            <div class="grid grid-cols-2 gap-4 mb-4">
+                <div class="bg-gray-950 p-4 rounded-xl border border-gray-800 text-center">
+                    <div class="text-gray-500 text-xs mb-1">触控采样率</div>
+                    <div id="touch-rate-display" class="text-purple-400 font-mono text-3xl font-bold">-- Hz</div>
+                </div>
+                <div class="bg-gray-950 p-4 rounded-xl border border-gray-800 text-center">
+                    <div class="text-gray-500 text-xs mb-1">当前触点数</div>
+                    <div id="touch-points-display" class="text-blue-400 font-mono text-3xl font-bold">-- 点</div>
+                </div>
+            </div>
+            <p class="text-xs text-gray-500 text-center mb-4">请在下方黑色区域内**快速滑动**手指，或**多指同时按下**。</p>
+            <div id="touch-area" class="w-full h-64 md:h-80 bg-gray-950 border-2 border-dashed border-gray-700 rounded-xl relative overflow-hidden flex items-center justify-center cursor-crosshair">
+                <div class="text-gray-600 text-sm pointer-events-none absolute" id="touch-hint">请在此区域疯狂滑动</div>
+                <div id="touch-points-container" class="absolute inset-0 pointer-events-none"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==================== 端侧判断与 Tab 渲染 ====================
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        
+        const tabs = [
+            { id: 'network', icon: '🌐', label: '网络测速' },
+            { id: 'toolbox', icon: '🛠️', label: '工具箱' }
+        ];
+        
+        if (isMobile) {
+            tabs.push({ id: 'screen', icon: '📱', label: '刷新率' });
+            tabs.push({ id: 'touch', icon: '👆', label: '触控' });
+        } else {
+            tabs.push({ id: 'keyboard', icon: '⌨️', label: '键盘' });
+            tabs.push({ id: 'mouse', icon: '🖱️', label: '鼠标' });
+        }
+
+        const tabContainer = document.getElementById('tab-container');
+        tabs.forEach((tab, index) => {
+            const btn = document.createElement('button');
+            btn.id = 'tab-' + tab.id;
+            btn.className = `flex-1 whitespace-nowrap px-3 py-2 rounded-lg font-bold text-xs md:text-sm transition-all ${index === 0 ? 'tab-active' : 'text-gray-400 hover:text-white'}`;
+            btn.innerText = `${tab.icon} ${tab.label}`;
+            btn.onclick = () => switchTab(tab.id);
+            tabContainer.appendChild(btn);
+        });
+
+        function switchTab(tabName) {
+            ['network', 'toolbox', 'keyboard', 'mouse', 'screen', 'touch'].forEach(t => {
+                const panel = document.getElementById('panel-' + t);
+                const btn = document.getElementById('tab-' + t);
+                if (panel) panel.classList.add('hidden');
+                if (btn) { btn.classList.remove('tab-active'); btn.classList.add('text-gray-400'); }
+            });
+            document.getElementById('panel-' + tabName).classList.remove('hidden');
+            const activeBtn = document.getElementById('tab-' + tabName);
+            if (activeBtn) { activeBtn.classList.add('tab-active'); activeBtn.classList.remove('text-gray-400'); }
+        }
+
+        // ==================== 全局数据 ====================
+        let currentData = {
+            ip: '--',
+            isp: '--',
+            ping: '--',
+            jitter: '--',
+            download: '0.00',
+            upload: '0.00'
+        };
+
+        // ==================== 1. 网络测速逻辑 ====================
+        async function getStableIP() {
+            const ipDisplay = document.getElementById('ip-display');
+            const ispDisplay = document.getElementById('isp-display');
+            function getChineseISP(ispStr) {
+                if (!ispStr) return '未知运营商';
+                if (ispStr.includes('China Mobile')) return '中国移动';
+                if (ispStr.includes('China Unicom')) return '中国联通';
+                if (ispStr.includes('China Telecom')) return '中国电信';
+                return ispStr;
+            }
+            function getChineseProvince(regionStr, cityStr) {
+                const rawStr = `${regionStr || ''} ${cityStr || ''}`.toLowerCase();
+                const provinceMap = {
+                    'beijing': '北京市', 'tianjin': '天津市', 'shanghai': '上海市', 'chongqing': '重庆市',
+                    'hebei': '河北省', 'shanxi': '山西省', 'liaoning': '辽宁省', 'jilin': '吉林省',
+                    'heilongjiang': '黑龙江省', 'jiangsu': '江苏省', 'zhejiang': '浙江省', 'anhui': '安徽省',
+                    'fujian': '福建省', 'jiangxi': '江西省', 'shandong': '山东省', 'henan': '河南省',
+                    'hubei': '湖北省', 'hunan': '湖南省', 'guangdong': '广东省', 'hainan': '海南省',
+                    'sichuan': '四川省', 'guizhou': '贵州省', 'yunnan': '云南省', 'shaanxi': '陕西省',
+                    'gansu': '甘肃省', 'qinghai': '青海省', 'taiwan': '台湾省',
+                    'inner mongolia': '内蒙古自治区', 'guangxi': '广西壮族自治区', 'tibet': '西藏自治区',
+                    'ningxia': '宁夏回族自治区', 'xinjiang': '新疆维吾尔自治区',
+                    'hong kong': '香港特别行政区', 'macau': '澳门特别行政区', 'macao': '澳门特别行政区'
+                };
+                for (let key in provinceMap) { if (rawStr.includes(key)) return provinceMap[key]; }
+                let cleanStr = (regionStr || '').replace(/ Sheng| Province| Shi| City/gi, '');
+                return cleanStr || '未知省份';
+            }
+            const apis = [
+                { url: 'https://ipwho.is/', parse: (data) => ({ ip: data.ip, isp: getChineseISP(data.connection?.isp || data.connection?.org), region: getChineseProvince(data.region, data.city) }) },
+                { url: 'https://ipapi.co/json/', parse: (data) => ({ ip: data.ip, isp: getChineseISP(data.org), region: getChineseProvince(data.region, data.city) }) },
+                { url: 'https://api64.ipify.org?format=json', parse: (data) => ({ ip: data.ip, isp: '未知', region: '未知' }) }
+            ];
+            for (const api of apis) {
+                try {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 4000);
+                    const res = await fetch(api.url, { signal: controller.signal });
+                    clearTimeout(timeoutId);
+                    if (!res.ok) throw new Error('HTTP Error');
+                    const data = await res.json();
+                    const result = api.parse(data);
+                    if (result.ip) {
+                        ipDisplay.innerText = result.ip;
+                        ispDisplay.innerText = `${result.isp} / ${result.region}`;
+                        currentData.ip = result.ip;
+                        currentData.isp = `${result.isp} / ${result.region}`;
+                        return; 
+                    }
+                } catch (e) {}
+            }
+            ipDisplay.innerText = '获取失败'; ispDisplay.innerText = '未知';
+        }
+        getStableIP();
+
+        async function testPingAndJitter() {
+            const btn = document.getElementById('ping-btn'); btn.innerText = '测试中...'; btn.disabled = true;
+            let times = [];
+            for (let i = 0; i < 5; i++) {
+                const s = performance.now();
+                try { await fetch('https://www.baidu.com/favicon.ico?t=' + Date.now(), { mode: 'no-cors', cache: 'no-store' }); times.push(performance.now() - s); } catch (e) {}
+                await new Promise(r => setTimeout(r, 100));
+            }
+            if (times.length > 1) {
+                const avg = Math.round(times.reduce((a, b) => a + b, 0) / times.length);
+                let jitterSum = 0; for (let i = 1; i < times.length; i++) jitterSum += Math.abs(times[i] - times[i-1]);
+                const jitter = Math.round(jitterSum / (times.length - 1));
+                document.getElementById('ping-display').innerText = avg + ' ms';
+                document.getElementById('jitter-display').innerText = jitter + ' ms';
+                currentData.ping = avg; currentData.jitter = jitter;
+            } else { document.getElementById('ping-display').innerText = '超时'; }
+            btn.innerText = '测延迟'; btn.disabled = false;
+        }
+
+        function testDownload() {
+            const btn = document.getElementById('download-btn'); 
+            btn.innerText = '测速中...'; btn.disabled = true;
+            
+            const display = document.getElementById('download-display');
+            const bar = document.getElementById('download-bar');
+            display.innerHTML = `0.00 <span class="text-[10px]">Mbps</span>`; 
+            bar.style.width = '0%';
+            
+            const url = 'https://speed.cloudflare.com/__down?bytes=5000000'; 
+            const start = performance.now();
+            
+            const xhr = new XMLHttpRequest();
+            xhr.open('GET', url, true);
+            xhr.responseType = 'arraybuffer';
+            
+            xhr.onprogress = function(event) {
+                if (event.lengthComputable) {
+                    const received = event.loaded;
+                    const time = (performance.now() - start) / 1000;
+                    if (time > 0) {
+                        const mbps = ((received * 8) / time / 1000000).toFixed(2);
+                        display.innerHTML = `${mbps} <span class="text-[10px]">Mbps</span>`;
+                        bar.style.width = Math.min(100, (received / 5000000) * 100) + '%';
+                    }
+                }
+            };
+            
+            xhr.onload = function() {
+                if (xhr.status === 200 || xhr.status === 0) { 
+                    const time = (performance.now() - start) / 1000;
+                    const finalMbps = ((xhr.response.byteLength * 8) / time / 1000000).toFixed(2);
+                    display.innerHTML = `${finalMbps} <span class="text-[10px]">Mbps</span>`;
+                    bar.style.width = '100%';
+                    
+                    currentData.download = finalMbps;
+                    saveHistory(finalMbps);
+                } else {
+                    display.innerText = '失败';
+                }
+                btn.innerText = '测下载'; 
+                btn.disabled = false;
+            };
+            
+            xhr.onerror = function() {
+                display.innerText = '网络错误';
+                btn.innerText = '重试下载'; 
+                btn.disabled = false;
+            };
+            
+            xhr.send();
+        }
+
+        async function testUpload() {
+            const btn = document.getElementById('upload-btn'); btn.innerText = '测速中...'; btn.disabled = true;
+            const size = 2 * 1024 * 1024;
+            const blob = new Blob([new ArrayBuffer(size)], { type: 'application/octet-stream' });
+            const start = performance.now();
+            try {
+                await fetch('https://speed.cloudflare.com/__up', { method: 'POST', body: blob, headers: { 'Content-Type': 'application/octet-stream' } });
+                const time = (performance.now() - start) / 1000;
+                const mbps = ((size * 8) / time / 1000000).toFixed(2);
+                document.getElementById('upload-display').innerHTML = `${mbps} <span class="text-[10px]">Mbps</span>`;
+                document.getElementById('upload-bar').style.width = '100%';
+                currentData.upload = mbps;
+                btn.innerText = '测上传';
+            } catch (e) {
+                document.getElementById('upload-display').innerText = `失败`;
+                btn.innerText = '重试上传';
+            }
+            btn.disabled = false;
+        }
+
+        function testDNS() {
+            const btn = document.getElementById('dns-btn'); btn.innerText = '解析中...'; btn.disabled = true;
+            const start = performance.now();
+            const img = new Image();
+            img.onload = img.onerror = () => {
+                document.getElementById('dns-display').innerText = Math.round(performance.now() - start) + ' ms';
+                btn.innerText = '测 DNS'; btn.disabled = false;
+            };
+            img.src = `https://www.cloudflare.com/cdn-cgi/trace?t=${Date.now()}`;
+        }
+
+        // ==================== 历史记录渲染 ====================
+        function saveHistory(speed) {
+            let history = JSON.parse(localStorage.getItem('lcspeed_history') || '[]');
+            history.push(parseFloat(speed));
+            if (history.length > 10) history.shift(); 
+            localStorage.setItem('lcspeed_history', JSON.stringify(history));
+            renderHistory();
+        }
+
+        function renderHistory() {
+            const container = document.getElementById('history-chart');
+            let history = JSON.parse(localStorage.getItem('lcspeed_history') || '[]');
+            
+            if (history.length === 0) {
+                container.innerHTML = '<div class="text-gray-700 text-xs w-full text-center pb-8">暂无记录，快去测个速吧</div>';
+                return;
+            }
+
+            const max = Math.max(...history, 10); 
+            container.innerHTML = '';
+            history.forEach(speed => {
+                const heightPercent = (speed / max) * 100;
+                const barWrapper = document.createElement('div');
+                barWrapper.className = 'flex-1 flex flex-col items-center justify-end h-full group relative';
+                
+                const tooltip = document.createElement('div');
+                tooltip.className = 'absolute -top-6 bg-gray-800 text-green-400 text-[10px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10';
+                tooltip.innerText = speed + ' Mbps';
+                
+                const bar = document.createElement('div');
+                bar.className = 'history-bar w-full max-w-[20px] bg-blue-500 rounded-t-sm';
+                bar.style.height = heightPercent + '%';
+                
+                barWrapper.appendChild(tooltip);
+                barWrapper.appendChild(bar);
+                container.appendChild(barWrapper);
+            });
+        }
+        renderHistory(); 
+
+        function clearHistory() {
+            localStorage.removeItem('lcspeed_history');
+            renderHistory();
+        }
+
+        // ==================== 一键生成极客报告 (防开盒版) ====================
+        function generateReport() {
+            if (currentData.download === '0.00' && currentData.upload === '0.00' && currentData.ping === '--') {
+                alert('大哥，你还没测速呢！先点几个测速按钮，等出数据了再生成报告好吧？😂');
+                return;
+            }
+
+            let safeIp = '--';
+            if (currentData.ip && currentData.ip !== '--') {
+                const parts = currentData.ip.split('.');
+                if (parts.length === 4) {
+                    safeIp = `${parts[0]}.${parts[1]}.*.*`;
+                } else {
+                    safeIp = currentData.ip.substring(0, Math.floor(currentData.ip.length / 2)) + '******';
+                }
+            }
+
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const width = 600, height = 800;
+            canvas.width = width; canvas.height = height;
+
+            ctx.fillStyle = '#030712';
+            ctx.fillRect(0, 0, width, height);
+
+            ctx.strokeStyle = '#22c55e';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(20, 20, width - 40, height - 40);
+
+            ctx.fillStyle = '#22c55e';
+            ctx.font = 'bold 40px Arial';
+            ctx.fillText('★', 50, 80);
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '900 36px Arial';
+            ctx.fillText('Lcspeed 体检报告', 110, 80);
+
+            ctx.fillStyle = '#6b7280';
+            ctx.font = '16px Arial';
+            ctx.fillText('网络环境', 50, 150);
+            ctx.fillStyle = '#22c55e';
+            ctx.font = 'bold 20px monospace';
+            ctx.fillText(safeIp, 50, 180);
+            ctx.fillText(currentData.isp || '--', 50, 210);
+
+            ctx.fillStyle = '#6b7280';
+            ctx.font = '16px Arial';
+            ctx.fillText('延迟 / 抖动', 350, 150);
+            ctx.fillStyle = '#22c55e';
+            ctx.font = 'bold 24px monospace';
+            ctx.fillText(`${currentData.ping} ms / ${currentData.jitter} ms`, 350, 180);
+
+            ctx.fillStyle = '#6b7280';
+            ctx.font = '16px Arial';
+            ctx.fillText('下载速度', 50, 300);
+            ctx.fillStyle = '#3b82f6';
+            ctx.font = '900 72px monospace';
+            ctx.fillText(currentData.download, 50, 380);
+            ctx.fillStyle = '#6b7280';
+            ctx.font = '20px monospace';
+            ctx.fillText('Mbps', 50, 410);
+
+            ctx.fillStyle = '#6b7280';
+            ctx.font = '16px Arial';
+            ctx.fillText('上传速度', 320, 300);
+            ctx.fillStyle = '#a855f7';
+            ctx.font = '900 72px monospace';
+            ctx.fillText(currentData.upload, 320, 380);
+            ctx.fillStyle = '#6b7280';
+            ctx.font = '20px monospace';
+            ctx.fillText('Mbps', 320, 410);
+
+            const date = new Date().toLocaleString();
+            ctx.fillStyle = '#374151';
+            ctx.font = '14px monospace';
+            ctx.fillText(`Tested at: ${date}`, 50, 500);
+            ctx.fillText(`Generated by Lcspeed`, 50, 530);
+
+            ctx.fillStyle = '#22c55e';
+            for(let i=0; i<50; i++){
+                if(Math.random() > 0.5) {
+                    ctx.fillRect(50 + i*10, 600, Math.random()*4 + 2, 100);
+                }
+            }
+
+            const link = document.createElement('a');
+            link.download = `Lcspeed_Report_${Date.now()}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+
+        // ==================== 极客工具箱逻辑 ====================
+        async function customPing() {
+            const domain = document.getElementById('ping-domain').value.trim();
+            const result = document.getElementById('custom-ping-result');
+            const btn = document.getElementById('custom-ping-btn');
+            if (!domain) return;
+
+            btn.innerText = '测试中...'; btn.disabled = true;
+            result.innerText = '...';
+            
+            const url = `https://${domain}/favicon.ico?t=${Date.now()}`;
+            const start = performance.now();
+            
+            try {
+                const res = await fetch(url, { mode: 'no-cors', cache: 'no-store' });
+                const time = Math.round(performance.now() - start);
+                result.innerHTML = `<span class="text-green-400">${time} ms</span> <span class="text-xs text-gray-500">(${time < 100 ? '极速' : time < 300 ? '正常' : '较慢'})</span>`;
+            } catch (e) {
+                result.innerHTML = `<span class="text-red-400">超时 / 无法访问</span>`;
+            }
+            btn.innerText = 'Ping'; btn.disabled = false;
+        }
+
+        function calcSubnet() {
+            const ipStr = document.getElementById('calc-ip').value.trim();
+            const maskBits = parseInt(document.getElementById('calc-mask').value);
+            
+            const ipParts = ipStr.split('.').map(Number);
+            if (ipParts.length !== 4 || ipParts.some(p => isNaN(p) || p < 0 || p > 255) || maskBits < 0 || maskBits > 32) {
+                alert('请输入正确的 IP 和掩码 (0-32)');
+                return;
+            }
+
+            const ipInt = (ipParts[0] << 24 >>> 0) + (ipParts[1] << 16) + (ipParts[2] << 8) + ipParts[3];
+            const maskInt = maskBits === 0 ? 0 : (0xFFFFFFFF << (32 - maskBits)) >>> 0;
+            const netInt = (ipInt & maskInt) >>> 0;
+            const bcInt = (netInt | (~maskInt)) >>> 0;
+            const hostCount = maskBits >= 31 ? (maskBits === 32 ? 1 : 2) : (Math.pow(2, 32 - maskBits) - 2);
+            const intToIp = (int) => `${(int >>> 24) & 255}.${(int >>> 16) & 255}.${(int >>> 8) & 255}.${int & 255}`;
+
+            document.getElementById('net-addr').innerText = intToIp(netInt);
+            document.getElementById('bc-addr').innerText = intToIp(bcInt);
+            
+            if (maskBits === 32) {
+                document.getElementById('host-range').innerText = intToIp(netInt);
+            } else if (maskBits === 31) {
+                document.getElementById('host-range').innerText = `${intToIp(netInt)} - ${intToIp(bcInt)}`;
+            } else {
+                document.getElementById('host-range').innerText = `${intToIp(netInt + 1)} - ${intToIp(bcInt - 1)}`;
+            }
+            document.getElementById('host-count').innerText = hostCount.toLocaleString() + ' 个';
+        }
+
+        setInterval(() => {
+            document.getElementById('current-ts').innerText = Math.floor(Date.now() / 1000);
+        }, 1000);
+
+        function tsToTime() {
+            const ts = parseInt(document.getElementById('timestamp-input').value);
+            if (isNaN(ts)) return;
+            const date = new Date(ts * 1000);
+            const localIso = new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+            document.getElementById('time-input').value = localIso;
+        }
+
+        function timeToTs() {
+            const timeStr = document.getElementById('time-input').value;
+            if (!timeStr) return;
+            const date = new Date(timeStr);
+            document.getElementById('timestamp-input').value = Math.floor(date.getTime() / 1000);
+        }
+
+        function utf8ToB64(str) {
+  return btoa(unescape(encodeURIComponent(str)));
+}
+function b64ToUtf8(b64) {
+  return decodeURIComponent(escape(atob(b64)));
+}
+
+function b64Encode() {
+    const input = document.getElementById('b64-input').value;
+    try {
+        const encoded = utf8ToB64(input);
+        showB64(encoded);
+    } catch (e) { showB64('编码失败', true); }
+}
+function b64Decode() {
+    const input = document.getElementById('b64-input').value;
+    try {
+        const decoded = b64ToUtf8(input);
+        showB64(decoded);
+    } catch (e) { showB64('解码失败，请检查 Base64 格式', true); }
+}
+
+
+        function showB64(text, isError = false) {
+            const res = document.getElementById('b64-result');
+            res.classList.remove('hidden');
+            res.innerText = text;
+            res.className = `mt-3 bg-gray-950 p-3 rounded-lg border ${isError ? 'border-red-500 text-red-400' : 'border-gray-800 text-green-400'} text-xs font-mono break-all block`;
+        }
+
+        async function querySpecificIp() {
+            const ipInput = document.getElementById('query-ip-input').value.trim();
+            const btn = document.getElementById('query-ip-btn');
+            const resultBox = document.getElementById('query-ip-result');
+            
+            btn.innerText = '查询中...'; btn.disabled = true;
+            
+            const targetIp = ipInput || '';
+            const url = targetIp ? `https://ipwho.is/${targetIp}` : `https://ipwho.is/`;
+
+            try {
+                const res = await fetch(url);
+                const data = await res.json();
+                
+                if (data.success === false) {
+                    alert(data.message || '查询失败，请检查 IP 格式');
+                } else {
+                    resultBox.classList.remove('hidden');
+                    document.getElementById('q-ip').innerText = data.ip;
+                    document.getElementById('q-country').innerText = data.country || '未知';
+                    
+                    let loc = data.city ? `${data.city}, ${data.region}` : data.region;
+                    document.getElementById('q-region').innerText = loc || '未知';
+                    
+                    document.getElementById('q-isp').innerText = data.connection?.isp || data.connection?.org || '未知';
+                }
+            } catch (e) {
+                alert('查询请求失败，可能达到接口频率限制或网络异常。');
+            }
+            
+            btn.innerText = '查询'; btn.disabled = false;
+        }
+
+        // ==================== PC 键盘逻辑 (支持区域切换) ====================
+        if (!isMobile) {
+            const pressedKeys = new Set();
+            const container = document.getElementById('keyboard-container');
+
+            // 标准 PC 104 键布局
+            const layoutStandard = [
+                [{c:'Escape',l:'Esc',w:1}, {c:'F1',l:'F1',w:1}, {c:'F2',l:'F2',w:1}, {c:'F3',l:'F3',w:1}, {c:'F4',l:'F4',w:1}, {c:'F5',l:'F5',w:1}, {c:'F6',l:'F6',w:1}, {c:'F7',l:'F7',w:1}, {c:'F8',l:'F8',w:1}, {c:'F9',l:'F9',w:1}, {c:'F10',l:'F10',w:1}, {c:'F11',l:'F11',w:1}, {c:'F12',l:'F12',w:1}],
+                [{c:'Backquote',l:'~',w:1}, {c:'Digit1',l:'1',w:1}, {c:'Digit2',l:'2',w:1}, {c:'Digit3',l:'3',w:1}, {c:'Digit4',l:'4',w:1}, {c:'Digit5',l:'5',w:1}, {c:'Digit6',l:'6',w:1}, {c:'Digit7',l:'7',w:1}, {c:'Digit8',l:'8',w:1}, {c:'Digit9',l:'9',w:1}, {c:'Digit0',l:'0',w:1}, {c:'Minus',l:'-',w:1}, {c:'Equal',l:'=',w:1}, {c:'Backspace',l:'Backspace',w:2}],
+                [{c:'Tab',l:'Tab',w:1.5}, {c:'KeyQ',l:'Q',w:1}, {c:'KeyW',l:'W',w:1}, {c:'KeyE',l:'E',w:1}, {c:'KeyR',l:'R',w:1}, {c:'KeyT',l:'T',w:1}, {c:'KeyY',l:'Y',w:1}, {c:'KeyU',l:'U',w:1}, {c:'KeyI',l:'I',w:1}, {c:'KeyO',l:'O',w:1}, {c:'KeyP',l:'P',w:1}, {c:'BracketLeft',l:'[',w:1}, {c:'BracketRight',l:']',w:1}, {c:'Backslash',l:'\\',w:1.5}],
+                [{c:'CapsLock',l:'Caps',w:1.8}, {c:'KeyA',l:'A',w:1}, {c:'KeyS',l:'S',w:1}, {c:'KeyD',l:'D',w:1}, {c:'KeyF',l:'F',w:1}, {c:'KeyG',l:'G',w:1}, {c:'KeyH',l:'H',w:1}, {c:'KeyJ',l:'J',w:1}, {c:'KeyK',l:'K',w:1}, {c:'KeyL',l:'L',w:1}, {c:'Semicolon',l:';',w:1}, {c:'Quote',l:"'",w:1}, {c:'Enter',l:'Enter',w:2.2}],
+                [{c:'ShiftLeft',l:'Shift',w:2.3}, {c:'KeyZ',l:'Z',w:1}, {c:'KeyX',l:'X',w:1}, {c:'KeyC',l:'C',w:1}, {c:'KeyV',l:'V',w:1}, {c:'KeyB',l:'B',w:1}, {c:'KeyN',l:'N',w:1}, {c:'KeyM',l:'M',w:1}, {c:'Comma',l:',',w:1}, {c:'Period',l:'.',w:1}, {c:'Slash',l:'/',w:1}, {c:'ShiftRight',l:'Shift',w:2.7}],
+                [{c:'ControlLeft',l:'Ctrl',w:1.3}, {c:'MetaLeft',l:'Win',w:1.3}, {c:'AltLeft',l:'Alt',w:1.3}, {c:'Space',l:'Space',w:6.2}, {c:'AltRight',l:'Alt',w:1.3}, {c:'MetaRight',l:'Win',w:1.3}, {c:'ContextMenu',l:'Menu',w:1.3}, {c:'ControlRight',l:'Ctrl',w:1.3}]
+            ];
+
+            // Mac 布局 (还原 Magic Keyboard 键帽)
+            const layoutMac = [
+                [{c:'Escape',l:'esc',w:1}, {c:'F1',l:'F1',w:1}, {c:'F2',l:'F2',w:1}, {c:'F3',l:'F3',w:1}, {c:'F4',l:'F4',w:1}, {c:'F5',l:'F5',w:1}, {c:'F6',l:'F6',w:1}, {c:'F7',l:'F7',w:1}, {c:'F8',l:'F8',w:1}, {c:'F9',l:'F9',w:1}, {c:'F10',l:'F10',w:1}, {c:'F11',l:'F11',w:1}, {c:'F12',l:'F12',w:1}, {c:'Power',l:'⏻',w:1}],
+                [{c:'Backquote',l:'~',w:1}, {c:'Digit1',l:'1',w:1}, {c:'Digit2',l:'2',w:1}, {c:'Digit3',l:'3',w:1}, {c:'Digit4',l:'4',w:1}, {c:'Digit5',l:'5',w:1}, {c:'Digit6',l:'6',w:1}, {c:'Digit7',l:'7',w:1}, {c:'Digit8',l:'8',w:1}, {c:'Digit9',l:'9',w:1}, {c:'Digit0',l:'0',w:1}, {c:'Minus',l:'-',w:1}, {c:'Equal',l:'=',w:1}, {c:'Backspace',l:'delete',w:2}],
+                [{c:'Tab',l:'tab',w:1.5}, {c:'KeyQ',l:'Q',w:1}, {c:'KeyW',l:'W',w:1}, {c:'KeyE',l:'E',w:1}, {c:'KeyR',l:'R',w:1}, {c:'KeyT',l:'T',w:1}, {c:'KeyY',l:'Y',w:1}, {c:'KeyU',l:'U',w:1}, {c:'KeyI',l:'I',w:1}, {c:'KeyO',l:'O',w:1}, {c:'KeyP',l:'P',w:1}, {c:'BracketLeft',l:'[',w:1}, {c:'BracketRight',l:']',w:1}, {c:'Backslash',l:'\\',w:1.5}],
+                [{c:'CapsLock',l:'caps lock',w:1.8}, {c:'KeyA',l:'A',w:1}, {c:'KeyS',l:'S',w:1}, {c:'KeyD',l:'D',w:1}, {c:'KeyF',l:'F',w:1}, {c:'KeyG',l:'G',w:1}, {c:'KeyH',l:'H',w:1}, {c:'KeyJ',l:'J',w:1}, {c:'KeyK',l:'K',w:1}, {c:'KeyL',l:'L',w:1}, {c:'Semicolon',l:';',w:1}, {c:'Quote',l:"'",w:1}, {c:'Enter',l:'return',w:2.2}],
+                [{c:'ShiftLeft',l:'⇧',w:2.3}, {c:'KeyZ',l:'Z',w:1}, {c:'KeyX',l:'X',w:1}, {c:'KeyC',l:'C',w:1}, {c:'KeyV',l:'V',w:1}, {c:'KeyB',l:'B',w:1}, {c:'KeyN',l:'N',w:1}, {c:'KeyM',l:'M',w:1}, {c:'Comma',l:',',w:1}, {c:'Period',l:'.',w:1}, {c:'Slash',l:'/',w:1}, {c:'ShiftRight',l:'⇧',w:2.7}],
+                [
+                    {c:'Fn',l:'fn',w:1}, {c:'ControlLeft',l:'⌃',w:1}, {c:'AltLeft',l:'⌥',w:1}, {c:'MetaLeft',l:'⌘',w:1.2}, 
+                    {c:'Space',l:'',w:5.6}, 
+                    {c:'MetaRight',l:'⌘',w:1.2}, {c:'AltRight',l:'⌥',w:1}, 
+                    {c:'ArrowLeft',l:'←',w:1}, {c:'ArrowUp',l:'↑',w:1}, {c:'ArrowDown',l:'↓',w:1}, {c:'ArrowRight',l:'→',w:1}
+                ]
+            ];
+
+            // 笔记本布局
+            const layoutLaptop = [
+                layoutStandard[0], layoutStandard[1], layoutStandard[2], layoutStandard[3],
+                [
+                    {c:'ShiftLeft',l:'Shift',w:2.3}, {c:'KeyZ',l:'Z',w:1}, {c:'KeyX',l:'X',w:1}, {c:'KeyC',l:'C',w:1}, {c:'KeyV',l:'V',w:1}, {c:'KeyB',l:'B',w:1}, {c:'KeyN',l:'N',w:1}, {c:'KeyM',l:'M',w:1}, {c:'Comma',l:',',w:1}, {c:'Period',l:'.',w:1}, {c:'Slash',l:'/',w:1}, 
+                    {c:'ShiftRight',l:'Shift',w:1.7}, {c:'ArrowUp',l:'↑',w:1}, {c:'Delete',l:'Del',w:1}
+                ],
+                [
+                    {c:'ControlLeft',l:'Ctrl',w:1.3}, {c:'MetaLeft',l:'Win',w:1.3}, {c:'AltLeft',l:'Alt',w:1.3}, {c:'Space',l:'Space',w:5.2}, {c:'AltRight',l:'Alt',w:1.3}, {c:'MetaRight',l:'Win',w:1.3}, {c:'ContextMenu',l:'Menu',w:1.3}, 
+                    {c:'ControlRight',l:'Ctrl',w:1.3}, {c:'ArrowLeft',l:'←',w:1}, {c:'ArrowDown',l:'↓',w:1}, {c:'ArrowRight',l:'→',w:1}
+                ]
+            ];
+
+            // 数字区
+            const layoutNumpad = [
+                [{c:'NumLock',l:'Num',w:1}, {c:'NumpadDivide',l:'/',w:1}, {c:'NumpadMultiply',l:'*',w:1}, {c:'NumpadSubtract',l:'-',w:1}],
+                [{c:'Numpad7',l:'7',w:1}, {c:'Numpad8',l:'8',w:1}, {c:'Numpad9',l:'9',w:1}, {c:'NumpadAdd',l:'+',w:1, h:2}],
+                [{c:'Numpad4',l:'4',w:1}, {c:'Numpad5',l:'5',w:1}, {c:'Numpad6',l:'6',w:1}],
+                [{c:'Numpad1',l:'1',w:1}, {c:'Numpad2',l:'2',w:1}, {c:'Numpad3',l:'3',w:1}, {c:'NumpadEnter',l:'Ent',w:1, h:2}],
+                [{c:'Numpad0',l:'0',w:2}, {c:'NumpadDecimal',l:'.',w:1}]
+            ];
+
+            function renderRowGrid(row, isNumpad = false) {
+                const rowDiv = document.createElement('div');
+                rowDiv.className = isNumpad ? 'grid grid-cols-4 gap-1.5 mb-1.5' : 'grid grid-cols-15 gap-1.5 mb-1.5';
+                
+                row.forEach(key => {
+                    const el = document.createElement('div');
+                    el.id = 'key-' + key.c;
+                    el.className = 'key-btn h-10 flex items-center justify-center';
+                    
+                    let colSpan = Math.round(key.w * 2); 
+                    if(key.w === 1) colSpan = 1;
+                    else if(key.w === 1.1) colSpan = 1;
+                    else if(key.w === 1.2) colSpan = 1;
+                    else if(key.w === 1.3) colSpan = 1.5;
+                    else if(key.w === 1.5) colSpan = 2;
+                    else if(key.w === 1.8) colSpan = 2.5;
+                    else if(key.w === 2) colSpan = 3;
+                    else if(key.w === 2.2) colSpan = 3;
+                    else if(key.w === 2.3) colSpan = 3.5;
+                    else if(key.w === 2.7) colSpan = 4;
+                    else if(key.w === 5.2) colSpan = 7;
+                    else if(key.w === 5.6) colSpan = 8;
+                    else if(key.w === 6.2) colSpan = 8;
+                    
+                    el.style.gridColumn = `span ${colSpan}`;
+                    if (key.h) el.style.gridRow = `span ${key.h}`;
+                    
+                    if (isNumpad) {
+                        el.style.gridColumn = `span ${key.w}`;
+                        if (key.h) el.style.gridRow = `span ${key.h}`;
+                    }
+
+                    el.innerText = key.l;
+                    rowDiv.appendChild(el);
+                });
+                return rowDiv;
+            }
+
+            window.changeKeyboardLayout = function(type) {
+                container.innerHTML = '';
+                pressedKeys.clear();
+                document.getElementById('key-count').innerText = 0;
+                container.className = 'flex flex-col gap-1.5 w-full overflow-x-auto pb-4 no-scrollbar';
+                
+                const wrapper = document.createElement('div');
+                wrapper.className = 'min-w-[700px]';
+
+                if (type === 'standard') {
+                    const flexDiv = document.createElement('div');
+                    flexDiv.className = 'flex gap-4';
+                    
+                    const leftSide = document.createElement('div');
+                    leftSide.className = 'flex-1 flex flex-col';
+                    layoutStandard.forEach((row) => {
+                        const rowDiv = renderRowGrid(row, false);
+                        rowDiv.style.gridTemplateColumns = 'repeat(15, 1fr)';
+                        leftSide.appendChild(rowDiv);
+                    });
+                    
+                    const rightSide = document.createElement('div');
+                    rightSide.className = 'w-56';
+                    layoutNumpad.forEach(row => {
+                        const rowDiv = renderRowGrid(row, true);
+                        rowDiv.style.gridTemplateColumns = 'repeat(4, 1fr)';
+                        rightSide.appendChild(rowDiv);
+                    });
+                    
+                    flexDiv.appendChild(leftSide);
+                    flexDiv.appendChild(rightSide);
+                    wrapper.appendChild(flexDiv);
+                } 
+                else if (type === 'mac') {
+                    const leftSide = document.createElement('div');
+                    leftSide.className = 'w-full';
+                    layoutMac.forEach(row => {
+                        const rowDiv = renderRowGrid(row, false);
+                        rowDiv.style.gridTemplateColumns = 'repeat(15, 1fr)';
+                        leftSide.appendChild(rowDiv);
+                    });
+                    wrapper.appendChild(leftSide);
+                }
+                else if (type === 'laptop') {
+                    const leftSide = document.createElement('div');
+                    leftSide.className = 'w-full';
+                    layoutLaptop.forEach(row => {
+                        const rowDiv = renderRowGrid(row, false);
+                        rowDiv.style.gridTemplateColumns = 'repeat(15, 1fr)';
+                        leftSide.appendChild(rowDiv);
+                    });
+                    wrapper.appendChild(leftSide);
+                } 
+                else if (type === 'numpad') {
+                    const numpadWrapper = document.createElement('div');
+                    numpadWrapper.className = 'w-64 mx-auto';
+                    layoutNumpad.forEach(row => {
+                        const rowDiv = renderRowGrid(row, true);
+                        rowDiv.style.gridTemplateColumns = 'repeat(4, 1fr)';
+                        numpadWrapper.appendChild(rowDiv);
+                    });
+                    wrapper.appendChild(numpadWrapper);
+                }
+                container.appendChild(wrapper);
+            };
+
+            window.changeKeyboardLayout('standard');
+
+            window.addEventListener('keydown', e => { 
+                const el = document.getElementById('key-' + e.code); 
+                if (el) { 
+                    e.preventDefault(); 
+                    el.classList.add('key-pressed'); 
+                    pressedKeys.add(e.code); 
+                    document.getElementById('key-count').innerText = pressedKeys.size; 
+                } 
+            });
+            window.addEventListener('keyup', e => { 
+                const el = document.getElementById('key-' + e.code); 
+                if (el) { 
+                    el.classList.remove('key-pressed'); 
+                    pressedKeys.delete(e.code); 
+                    document.getElementById('key-count').innerText = pressedKeys.size; 
+                } 
+            });
+            window.resetKeyboard = function() { 
+                document.querySelectorAll('.key-pressed').forEach(el => el.classList.remove('key-pressed')); 
+                pressedKeys.clear(); 
+                document.getElementById('key-count').innerText = 0; 
+            };
+        }
+
+        // ==================== PC 鼠标逻辑 ====================
+        if (!isMobile) {
+            const card = document.getElementById('calibration-card');
+            const slider = document.getElementById('calibrate-slider');
+            slider.addEventListener('input', (e) => {
+                const widthPx = e.target.value;
+                card.style.width = Math.min(widthPx, window.innerWidth * 0.85) + 'px';
+                card.style.height = (Math.min(widthPx, window.innerWidth * 0.85) * (53.98 / 85.6)) + 'px'; 
+            });
+
+            let isDraggingDpi = false;
+            let pixelsMoved = 0;
+            const dragZone = document.getElementById('dpi-drag-zone');
+            const dpiBtn = document.getElementById('dpi-btn');
+            const dpiArea = document.getElementById('dpi-test-area');
+            const dpiResult = document.getElementById('dpi-result');
+
+            window.startDpiTest = function() { dpiArea.classList.remove('hidden'); dpiResult.innerText = '等待拖动...'; dpiBtn.disabled = true; };
+            dragZone.addEventListener('mousedown', (e) => { isDraggingDpi = true; pixelsMoved = 0; dpiResult.innerText = '正在记录...'; });
+            window.addEventListener('mouseup', () => {
+                if (isDraggingDpi) {
+                    isDraggingDpi = false;
+                    const cmMoved = parseFloat(document.getElementById('pad-distance').value) || 10;
+                    if (pixelsMoved > 50) {
+                        const calculatedDpi = Math.round(pixelsMoved / (cmMoved / 2.54));
+                        dpiResult.innerText = calculatedDpi + ' DPI';
+                    } else { dpiResult.innerText = '距离太短，重试'; }
+                    dpiBtn.disabled = false;
+                }
+            });
+            dragZone.addEventListener('mousemove', (e) => { if (isDraggingDpi) { pixelsMoved += Math.abs(e.movementX); } });
+
+            const pollingDisplay = document.getElementById('polling-display');
+            const lockOverlay = document.getElementById('lock-overlay');
+            const liveHz = document.getElementById('live-hz');
+            let lastLockTime = 0, lockMoveCount = 0, lockTotalTime = 0, isLocking = false;
+
+            window.lockPointer = function() { document.getElementById('panel-mouse').requestPointerLock(); };
+            document.addEventListener('pointerlockchange', () => {
+                if (document.pointerLockElement) {
+                    isLocking = true; lockOverlay.classList.remove('hidden');
+                    liveHz.innerHTML = '-- <span class="text-lg text-gray-500">Hz</span>';
+                    lockMoveCount = 0; lockTotalTime = 0; lastLockTime = 0;
+                } else {
+                    if (isLocking) {
+                        isLocking = false; lockOverlay.classList.add('hidden');
+                        if (lockMoveCount > 10) pollingDisplay.innerText = Math.round(1000 / (lockTotalTime / lockMoveCount)) + ' Hz';
+                        else pollingDisplay.innerText = '数据不足';
+                    }
+                }
+            });
+            document.addEventListener('mousemove', (e) => {
+                if (isLocking && document.pointerLockElement) {
+                    const now = performance.now();
+                    if (lastLockTime > 0) {
+                        const delta = now - lastLockTime;
+                        if (delta < 50) {
+                            lockMoveCount++; lockTotalTime += delta;
+                            if (lockMoveCount % 30 === 0) liveHz.innerHTML = `${Math.round(1000 / (lockTotalTime / lockMoveCount))} <span class="text-lg text-gray-500">Hz</span>`;
+                        } else { lockMoveCount = 0; lockTotalTime = 0; }
+                    }
+                    lastLockTime = now;
+                }
+            });
+
+            const clickZone = document.getElementById('click-zone');
+            const clickDisplay = document.getElementById('click-display');
+            let lastClick = 0;
+            clickZone.addEventListener('mousedown', () => {
+                const now = performance.now();
+                if (now - lastClick < 60) { clickDisplay.innerText = "⚠️ 连点老化"; clickDisplay.className = "text-red-500 text-sm font-bold h-6"; }
+                else { clickDisplay.innerText = "单击正常"; clickDisplay.className = "text-green-400 text-sm font-bold h-6"; }
+                lastClick = now;
+            });
+        }
+
+        // ==================== 手机屏幕刷新率逻辑 ====================
+        if (isMobile) {
+            let fpsRequestId;
+            window.startFpsTest = function() {
+                const btn = document.getElementById('fps-btn');
+                const display = document.getElementById('fps-display');
+                const indicator = document.getElementById('fps-indicator');
+                
+                btn.innerText = '测试中 (3秒)...'; btn.disabled = true;
+                display.innerHTML = `-- <span class="text-xl">Hz</span>`;
+                
+                let frameCount = 0;
+                let startTime = performance.now();
+                indicator.classList.add('animate-ping');
+
+                function calcFps(currentTime) {
+                    frameCount++;
+                    if (currentTime - startTime >= 3000) {
+                        const fps = Math.round((frameCount * 1000) / (currentTime - startTime));
+                        display.innerHTML = `${fps} <span class="text-xl">Hz</span>`;
+                        if (fps >= 115) display.className = 'text-6xl font-black font-mono text-green-400 mb-4';
+                        else if (fps >= 85) display.className = 'text-6xl font-black font-mono text-blue-400 mb-4';
+                        else display.className = 'text-6xl font-black font-mono text-yellow-400 mb-4';
+                        
+                        indicator.classList.remove('animate-ping');
+                        btn.innerText = '重新测试'; btn.disabled = false;
+                        cancelAnimationFrame(fpsRequestId);
+                    } else {
+                        fpsRequestId = requestAnimationFrame(calcFps);
+                    }
+                }
+                fpsRequestId = requestAnimationFrame(calcFps);
+            }
+        }
+
+        // ==================== 手机触控测试逻辑 ====================
+        if (isMobile) {
+            const touchArea = document.getElementById('touch-area');
+            const rateDisplay = document.getElementById('touch-rate-display');
+            const pointsDisplay = document.getElementById('touch-points-display');
+            const container = document.getElementById('touch-points-container');
+            const hint = document.getElementById('touch-hint');
+
+            let lastTouchTime = 0;
+            let touchTimes = [];
+
+            touchArea.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                hint.style.display = 'none';
+                pointsDisplay.innerText = e.touches.length + ' 点';
+                createTouchPoints(e.touches);
+            }, { passive: false });
+
+            touchArea.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                pointsDisplay.innerText = e.touches.length + ' 点';
+                
+                const now = performance.now();
+                if (lastTouchTime > 0) {
+                    const delta = now - lastTouchTime;
+                    if (delta > 0) {
+                        touchTimes.push(1000 / delta);
+                        if (touchTimes.length > 20) touchTimes.shift();
+                        const avgRate = Math.round(touchTimes.reduce((a, b) => a + b, 0) / touchTimes.length);
+                        rateDisplay.innerText = avgRate + ' Hz';
+                        if (avgRate >= 200) rateDisplay.className = 'text-purple-400 font-mono text-3xl font-bold';
+                        else if (avgRate >= 100) rateDisplay.className = 'text-blue-400 font-mono text-3xl font-bold';
+                        else rateDisplay.className = 'text-yellow-400 font-mono text-3xl font-bold';
+                    }
+                }
+                lastTouchTime = now;
+                createTouchPoints(e.touches);
+            }, { passive: false });
+
+            touchArea.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                pointsDisplay.innerText = e.touches.length + ' 点';
+                lastTouchTime = 0;
+                touchTimes = [];
+                container.innerHTML = '';
+                if (e.touches.length === 0) hint.style.display = 'block';
+            }, { passive: false });
+
+            function createTouchPoints(touches) {
+                container.innerHTML = '';
+                const rect = touchArea.getBoundingClientRect();
+                for (let i = 0; i < touches.length; i++) {
+                    const touch = touches[i];
+                    const dot = document.createElement('div');
+                    dot.className = 'absolute w-12 h-12 bg-green-500/50 rounded-full border-2 border-green-400 transform -translate-x-1/2 -translate-y-1/2 flex items-center justify-center text-white text-xs font-bold';
+                    dot.style.left = `${touch.clientX - rect.left}px`;
+                    dot.style.top = `${touch.clientY - rect.top}px`;
+                    dot.innerText = i + 1;
+                    container.appendChild(dot);
+                }
+            }
+        }
+    </script>
+</body>
+</html>
